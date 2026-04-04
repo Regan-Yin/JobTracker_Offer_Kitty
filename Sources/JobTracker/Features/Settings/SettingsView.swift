@@ -3,7 +3,8 @@ import SwiftUI
 
 /// Replace with your address when distributing a fork or custom build (`mailto` feedback).
 private enum FeedbackDistribution {
-    static let mailtoRecipient = "your-email@example.com"
+    static let mailtoRecipient = ""
+    static let githubIssuesURL = "https://github.com/Regan-Yin/JobTracker_Offer_Kitty/issues/new/choose"
 }
 
 // MARK: - SettingsView
@@ -325,16 +326,22 @@ struct FeedbackSheet: View {
 
         let subjectLine = "[JobTracker] \(topic): \(subject)"
 
-        var components = URLComponents()
-        components.scheme = "mailto"
-        components.path = FeedbackDistribution.mailtoRecipient
-        components.queryItems = [
-            URLQueryItem(name: "subject", value: subjectLine),
-            URLQueryItem(name: "body", value: fullBody),
-        ]
+        if FeedbackDistribution.mailtoRecipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if let issuesURL = URL(string: FeedbackDistribution.githubIssuesURL) {
+                NSWorkspace.shared.open(issuesURL)
+            }
+        } else {
+            var components = URLComponents()
+            components.scheme = "mailto"
+            components.path = FeedbackDistribution.mailtoRecipient
+            components.queryItems = [
+                URLQueryItem(name: "subject", value: subjectLine),
+                URLQueryItem(name: "body", value: fullBody),
+            ]
 
-        if let url = components.url {
-            NSWorkspace.shared.open(url)
+            if let url = components.url {
+                NSWorkspace.shared.open(url)
+            }
         }
 
         var draft = editingDraft ?? FeedbackDraft()

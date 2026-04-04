@@ -1,143 +1,235 @@
 # JobTracker
 
-**Version 1.0.0** — A **local-first macOS** app for tracking job applications: scan a folder of materials (`.docx` / `.doc`), organize **companies** and **applications** in **SQLite**, and use **Overview**, **Applications**, **Companies**, **Exports**, and **Settings** without cloud accounts or paid APIs.
+Version 1.0.0
+
+A local-first macOS app for tracking job applications from your own folders. No cloud account, no paid API requirement, and no hidden background sync.
 
 ---
 
-## License and acceptable use (read this)
+## License and allowed use
 
-This project is shared for **non-profit, personal, and educational** use. **Commercial use is not permitted** without prior written permission from the author. See **[LICENSE](LICENSE)** for the full **JobTracker Non-Commercial Community License**.
+This project is released under the repository LICENSE as a non-commercial community license.
 
-- **Allowed:** Install, run, modify, and share the source for personal job hunting, learning, and good-faith non-commercial redistribution (e.g. your GitHub fork with attribution).
-- **Not allowed without permission:** Selling the app, bundling it in a paid product or service, or using it as part of work-for-hire or internal tooling where the primary purpose is commercial advantage, as described in the license.
+Allowed:
+- Personal use
+- Educational use
+- Non-profit use
+- Non-commercial forks with attribution
 
-The MIT License text **does not** apply; the license file in this repository controls use. If you need a commercial license, contact the author.
+Not allowed without permission:
+- Selling this app
+- Commercial internal deployment
+- Bundling into paid products/services
 
-**No warranty.** The software is provided **as-is**. You are responsible for your data and backups.
-
----
-
-## What JobTracker does (product)
-
-| Capability | Description |
-|------------|-------------|
-| **Materials root** | You choose a folder on disk; the app scans it for documents and builds structured records. |
-| **Pipeline** | Companies, applications, stages, outcomes, notes, duplicates, exports. |
-| **Analytics** | Overview dashboards and charts for your search. |
-| **Privacy** | Data stays on your Mac (SQLite under Application Support). No vendor cloud for core features. |
-
-**Out of scope (by design):** No email scraping, no LinkedIn automation, no paid third-party APIs for core functionality.
+No warranty is provided. You are responsible for your own backups.
 
 ---
 
-## Technical overview
+## Quick path (non-technical users)
 
-| Layer | Choice |
-|-------|--------|
-| UI | SwiftUI |
-| Persistence | SQLite via [GRDB](https://github.com/groue/GRDB.swift) |
-| Documents | [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) for `.docx` handling |
-| Build | Swift Package Manager, macOS 14+ |
+If you do not code, use the release package instead of building from source.
 
-Detailed product and technical notes: [`job_tracker_mvp_cursor_spec.md`](job_tracker_mvp_cursor_spec.md).
+### A) Download and install
+
+1. Open this repository on GitHub.
+  - https://github.com/Regan-Yin/JobTracker_Offer_Kitty
+2. Go to Releases.
+3. Download the latest file named like JobTracker-<version>-macOS.zip.
+4. Unzip it.
+5. Drag JobTracker.app into your Applications folder.
+6. Open JobTracker.
+
+If macOS blocks first launch:
+1. Right-click JobTracker.app.
+2. Click Open.
+3. Confirm Open.
+
+### B) First-time setup
+
+1. On first launch, choose your JOB root folder.
+2. Click scan/rescan.
+3. Review detected companies and applications.
+4. Confirm role names, stage, industry, and company size.
+5. Start using Overview, Applications, Companies, and Exports.
 
 ---
 
-## Requirements
+## Recommended folder and file naming (important)
 
-- **macOS 14+**
-- **Xcode 15+** or Swift **5.10+** with Command Line Tools (for `swift build` and optional `actool` / `iconutil` when packaging)
+Detection quality is best when your files follow consistent structure.
+
+### Recommended folder nesting
+
+```text
+JOB/
+  Company Name/
+    Role or Team Name/
+      Cover Letter - Company - Role.docx
+      Resume - Your Name.docx
+```
+
+Also supported:
+
+```text
+JOB/
+  Company Name/
+    Cover Letter - Data Analyst.docx
+    Resume - Your Name.docx
+```
+
+### Cover letter naming tips
+
+Use at least one keyword:
+- Cover
+- Cover Letter
+- CL
+
+Good examples:
+- Cover Letter - Capital One - Business Analyst.docx
+- CL - Shopify - Data Analyst.docx
+
+### Resume naming tips
+
+Use at least one keyword:
+- Resume
+- CV
+
+Good examples:
+- Resume - Regan.docx
+- CV - Regan - 2026.docx
+
+### Parser behavior notes
+
+- .docx: full metadata + text extraction (best quality)
+- .doc: metadata-focused fallback (lower confidence)
+- If only resume exists and no cover letter: app creates one draft candidate and asks for confirmation
 
 ---
 
-## Quick start (from source)
+## How to use the app step-by-step
+
+1. Choose materials root folder in onboarding or Settings.
+2. Click Rescan folder.
+3. Open review items with unresolved fields.
+4. Confirm or edit:
+   - Company name
+   - Role title
+   - Stage and outcome
+   - Industry and company size
+5. Use Applications and Companies tabs for manual edits.
+6. Add reminders/tasks for follow-up.
+7. Use Exports to generate CSV for your records.
+8. Re-scan after you add new cover letters/resumes.
+
+---
+
+## Privacy and safety summary
+
+- Data is local on your Mac.
+- No telemetry or analytics SDK in this repo.
+- No cloud sync for MVP.
+- No hidden background upload pipeline.
+- Optional feedback action opens your browser to GitHub Issues when email is unset.
+
+Database location:
+- ~/Library/Application Support/JobTracker/jobtracker.sqlite
+
+---
+
+## For advanced users (developers)
+
+### Build from source
+
+Requirements:
+- macOS 14+
+- Xcode 15+ or Swift 5.10+
+
+Commands:
 
 ```bash
 git clone <your-repo-url>
-cd <repository-folder>
+cd JobTracker_Offer_Kitty
 swift package resolve
 swift build
 open .build/debug/JobTracker
 ```
 
-Or open `Package.swift` in Xcode, select the **JobTracker** executable scheme, and run (**⌘R**).
-
-### First launch
-
-1. Choose a **JOB materials root** folder (optional shortcut if `~/Documents/JOB` or `~/Documents/JobMaterials` exists).
-2. Run a **scan** from onboarding or **Settings → Rescan folder**.
-3. Explore **Overview**, **Applications**, and **Companies**.
-
-**Database location (your machine):**  
-`~/Library/Application Support/JobTracker/jobtracker.sqlite`
-
----
-
-## Packaging a `.app` and zip (optional)
-
-See **[Scripts/package_mac_app.sh](Scripts/package_mac_app.sh)**. It builds a release binary, compiles icons from `Resources/Assets.xcassets`, writes `dist/JobTracker.app`, and zips it for testing.
+### Package release app
 
 ```bash
 chmod +x Scripts/package_mac_app.sh
 ./Scripts/package_mac_app.sh
 ```
 
-Unsigned builds may require **Right-click → Open** the first time Gatekeeper prompts. Notarization is your responsibility if you distribute outside your own Mac.
+Expected outputs:
+- dist/JobTracker.app
+- dist/JobTracker-<version>-macOS.zip
+
+### Personalization points
+
+- App bundle id: Scripts/package_mac_app.sh
+- Icon assets and sizing: Resources plus Scripts/package_mac_app.sh
+- Theme colors: Sources/JobTracker/Theme
+- Role title cleanup rules: Sources/JobTracker/Core/Utilities/RoleTitleSanitizer.swift
+- Feedback channel defaults: Sources/JobTracker/Features/Settings/SettingsView.swift
+
+### Suggested improvement workflow
+
+1. Open a GitHub Issue first for bug/feature discussion.
+2. Add reproducible steps and screenshots.
+3. Submit a focused pull request.
+4. Keep changes aligned with job_tracker_mvp_cursor_spec.md.
 
 ---
 
-## Security and privacy (no backdoors)
+## Bug reports and improvement requests
 
-- **No analytics or telemetry** are implemented in this codebase.
-- **No network calls** from the app for core features; your data stays local except when *you* open a **mailto:** link for feedback (the system Mail app).
-- **Dependencies** are resolved via SwiftPM when you build (GRDB, ZIPFoundation from public GitHub).
+Please use GitHub Issues instead of direct email.
 
-For more detail: **[SECURITY.md](SECURITY.md)**.
+Issues page:
+- https://github.com/Regan-Yin/JobTracker_Offer_Kitty/issues
 
----
+Issue recommendations:
+- Bug: include macOS version, app version, exact steps, expected vs actual behavior
+- Feature request: describe use case and workflow impact
+- UX issue: include screenshot/video
 
-## Configuration for maintainers and forks
-
-| Item | Where |
-|------|--------|
-| Feedback email (`mailto`) | `Sources/JobTracker/Features/Settings/SettingsView.swift` — `FeedbackDistribution.mailtoRecipient` (default placeholder). |
-| App bundle id (packaging) | `Scripts/package_mac_app.sh` — `BUNDLE_ID`. |
-| Role title cleanup patterns | `Sources/JobTracker/Core/Utilities/RoleTitleSanitizer.swift`. |
-
-Replace the placeholder email before publishing a build you expect others to use for feedback.
+Security-related concerns:
+- Use GitHub private security reporting if enabled
+- Otherwise open an issue with minimal sensitive detail and ask for private follow-up
 
 ---
 
-## Frequently asked questions
+## Maintainer note
 
-**Q: Is my data sent to the cloud?**  
-A: No. SQLite lives under your user’s Application Support folder. You control backups (Time Machine, etc.).
+Maintainer email is intentionally left blank in source default to reduce spam.
 
-**Q: Can I use this at my company?**  
-A: Internal use at a for-profit company falls under **commercial / business use** in the license. You need **written permission** from the author for that, or use a different tool. Personal job search on your own machine is what this release targets.
+If you are a recruiter and this project demonstrates relevant fit, you are welcome to check the maintainer GitHub profile.
 
-**Q: Can I fork on GitHub?**  
-A: Yes, for **non-commercial** sharing and modification, with license and copyright notice preserved.
-
-**Q: Why does `actool` print `dyld` lines when packaging?**  
-A: On some macOS versions the asset compiler still writes icons successfully; the script checks for output files. See comments in `Scripts/package_mac_app.sh`.
-
-**Q: Gatekeeper says the app is from an unidentified developer.**  
-A: Expected for unsigned builds. Use **Right-click → Open**, or sign and notarize with your own Apple Developer ID.
-
-**Q: Where is feedback email delivered?**  
-A: To whatever address you set in `FeedbackDistribution.mailtoRecipient`, via your default mail client. The default in source is a **placeholder** — change it for your fork.
+The maintainer is actively job searching for roles such as:
+- BA
+- DS
+- DE
+- SDE
 
 ---
 
-## Contributing
+## Open-source release hygiene checklist
 
-Issues and pull requests are welcome for **non-commercial** improvements. Keep changes focused; match existing Swift style. Large features should align with [`job_tracker_mvp_cursor_spec.md`](job_tracker_mvp_cursor_spec.md).
+Before publishing source:
+
+1. Ensure these are not committed:
+   - .build/
+   - dist/
+   - local databases
+   - local logs
+2. Keep mailto recipient blank unless you explicitly want email feedback.
+3. Confirm LICENSE matches intended non-commercial terms.
+4. Verify README and SECURITY are consistent with actual behavior.
+5. Build and run one clean release package from Scripts/package_mac_app.sh.
 
 ---
 
-## Author
+## Security reference
 
-**Regan** — JobTracker is shared as a **personal, non-profit** project. **Commercial use is prohibited** without explicit permission; see **[LICENSE](LICENSE)**.
-
-If you find the app useful, a star on GitHub or a short note in your fork is appreciated.
+See SECURITY.md for the full security posture and reporting guidance.

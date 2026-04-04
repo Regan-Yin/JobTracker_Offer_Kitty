@@ -25,4 +25,9 @@ This document describes what JobTracker **does** and **does not** do with respec
 
 ## Reporting
 
-If you discover a security issue in this repository’s code, please open a **private** security advisory on GitHub (if enabled) or contact the maintainer through a channel they publish for security reports.
+If you discover a security issue in this repository’s code:
+
+1. Prefer a **private** GitHub security advisory (if enabled).
+2. If private reporting is unavailable, open a GitHub Issue with minimal sensitive details and request private follow-up.
+
+General bug reports and improvement requests should go to GitHub Issues.
