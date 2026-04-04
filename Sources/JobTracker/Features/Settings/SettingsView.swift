@@ -97,7 +97,7 @@ struct SettingsView: View {
                 Text("Light or dark")
                     .font(.headline)
                     .foregroundColor(JobTrackerTheme.textPrimary)
-                Text("Applies to the whole app and is independent of macOS appearance settings.")
+                Text("Controls this app’s window colors only. Dock/Finder icon sizing is set in the packaging icon pipeline (see docs).")
                     .font(.caption)
                     .foregroundColor(JobTrackerTheme.muted)
                 Picker("Appearance", selection: $appState.appearanceMode) {
@@ -106,6 +106,39 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+            }
+            .padding(.vertical, 4)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("App icon")
+                    .font(.headline)
+                    .foregroundColor(JobTrackerTheme.textPrimary)
+
+                Picker("App icon", selection: $appState.appIconMode) {
+                    ForEach(AppIconMode.allCases) { mode in
+                        Text(mode.label).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                if appState.iconChangeRequiresRestart {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Icon preference saved. Restart the app to apply the new icon.")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Button("Restart now") {
+                            appState.restartApplicationNow()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+                } else {
+                    Text("Changes apply on next launch.")
+                        .font(.caption)
+                        .foregroundColor(JobTrackerTheme.muted)
+                }
             }
             .padding(.vertical, 4)
         }

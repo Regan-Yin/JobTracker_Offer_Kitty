@@ -1,49 +1,113 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build release, compile AppIcon (light + dark) from Resources/Assets.xcassets,
-# assemble JobTracker.app, and zip for local testing or release upload.
-# Usage: from repo root — ./Scripts/package_mac_app.sh
+# Build release, normalize icon visual scale, then embed AppIcon.icns into the bundle.
+#
+# Input priority:
+# 1) AppIcon.appiconset (asset catalog via actool, Cursor-like workflow)
+# 2) APPICON_ICONSET_PATH=/path/to/AppIcon.iconset
+# 3) APPICON_ICNS_PATH=/path/to/icon.icns
+# 4) Resources/AppIcon/AppIcon.icns
+#
+# Visual size tuning:
+#   APPICON_CONTENT_SCALE=0.82 ./Scripts/package_mac_app.sh
+# A lower value adds more transparent margin so the icon appears less "zoomed in" in Dock/Finder.
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 APP_NAME="JobTracker"
-# Change this to your reverse-DNS id before App Store or notarized distribution.
 BUNDLE_ID="io.github.jobtracker.JobTracker"
 VERSION="1.0.0"
 MIN_OS="14.0"
 
-ASSETS="$ROOT/Resources/Assets.xcassets"
-APPICON_DIR="$ASSETS/AppIcon.appiconset"
-LIGHT_TEMPLATE="$ROOT/Resources/JobTracker-Light.iconset"
+DEFAULT_ICON="$ROOT/Resources/AppIcon/AppIcon.icns"
+DEFAULT_DARK_ICON="$ROOT/Resources/AppIcon/AppIcon-dark.icns"
+DEFAULT_ICONSET="$ROOT/Resources/AppIcon/AppIcon.iconset"
+DEFAULT_APPICONSET="$ROOT/Resources/AppIcon/AppIcon.appiconset"
+ICONSET_SRC="${APPICON_ICONSET_PATH:-$DEFAULT_ICONSET}"
+ICON_SRC="${APPICON_ICNS_PATH:-$DEFAULT_ICON}"
+ICON_DARK_SRC="${APPICON_DARK_ICNS_PATH:-$DEFAULT_DARK_ICON}"
+STATIC_LIGHT_ICON_SRC="${APPICON_STATIC_LIGHT_ICNS_PATH:-$DEFAULT_ICON}"
+APPICONSET_SRC="${APPICON_APPICONSET_PATH:-$DEFAULT_APPICONSET}"
+CONTENT_SCALE="${APPICON_CONTENT_SCALE:-0.82}"
+USE_ACTOOL="${APPICON_USE_ACTOOL:-auto}"
+NORMALIZER_SCRIPT="$ROOT/Scripts/normalize_iconset.swift"
 
-if [[ ! -d "$ASSETS" ]]; then
-  echo "error: Missing $ASSETS — add AppIcon.appiconset under Resources/Assets.xcassets"
+if [[ ! -f "$NORMALIZER_SCRIPT" ]]; then
+  echo "error: Missing icon normalizer script: $NORMALIZER_SCRIPT"
   exit 1
 fi
 
-echo "==> Verifying AppIcon.appiconset files match Contents.json..."
-export APPICON_DIR
-python3 <<'PY' || exit 1
-import json, os, sys
-root = os.environ["APPICON_DIR"]
-jpath = os.path.join(root, "Contents.json")
-with open(jpath) as f:
-    data = json.load(f)
-missing = []
-for im in data.get("images", []):
-    fn = im.get("filename")
-    if not fn:
-        continue
-    p = os.path.join(root, fn)
-    if not os.path.isfile(p):
-        missing.append(fn)
-if missing:
-    print("error: missing PNG(s) for AppIcon:", ", ".join(missing), file=sys.stderr)
-    sys.exit(1)
-print("     OK:", len(data["images"]), "image slots, all files on disk.")
-PY
+if [[ ! -f "$STATIC_LIGHT_ICON_SRC" ]]; then
+  echo "error: Missing static light icon source: $STATIC_LIGHT_ICON_SRC"
+  echo "       Set APPICON_STATIC_LIGHT_ICNS_PATH or place Resources/AppIcon/AppIcon.icns"
+  exit 1
+fi
+
+if [[ "$USE_ACTOOL" != "auto" && "$USE_ACTOOL" != "always" && "$USE_ACTOOL" != "never" ]]; then
+  echo "error: APPICON_USE_ACTOOL must be one of: auto, always, never"
+  exit 1
+fi
+
+ACTOOL_AVAILABLE=0
+if command -v xcrun >/dev/null 2>&1 && xcrun --find actool >/dev/null 2>&1; then
+  ACTOOL_AVAILABLE=1
+fi
+
+if [[ -d "$APPICONSET_SRC" ]]; then
+  if [[ "$USE_ACTOOL" == "never" ]]; then
+    echo "==> Found appiconset but APPICON_USE_ACTOOL=never, skipping asset-catalog build."
+  elif [[ "$ACTOOL_AVAILABLE" -eq 1 ]]; then
+    ICON_INPUT_KIND="appiconset"
+    ICON_INPUT_PATH="$APPICONSET_SRC"
+  elif [[ "$USE_ACTOOL" == "always" ]]; then
+    echo "error: APPICON_USE_ACTOOL=always but actool was not found (install Xcode tools)."
+    exit 1
+  fi
+fi
+
+if [[ -z "${ICON_INPUT_KIND:-}" && -d "$ICONSET_SRC" ]]; then
+  ICON_INPUT_KIND="iconset"
+  ICON_INPUT_PATH="$ICONSET_SRC"
+elif [[ -z "${ICON_INPUT_KIND:-}" && -f "$ICON_SRC" ]]; then
+  ICON_INPUT_KIND="icns"
+  ICON_INPUT_PATH="$ICON_SRC"
+fi
+
+if [[ "$USE_ACTOOL" == "always" && "${ICON_INPUT_KIND:-}" != "appiconset" ]]; then
+  echo "error: APPICON_USE_ACTOOL=always requires a valid appiconset source."
+  echo "       Looked for: $APPICONSET_SRC"
+  exit 1
+fi
+
+if [[ -z "${ICON_INPUT_KIND:-}" ]]; then
+  if [[ "$USE_ACTOOL" == "auto" && -d "$APPICONSET_SRC" && "$ACTOOL_AVAILABLE" -ne 1 ]]; then
+    echo "warning: AppIcon.appiconset found, but actool is unavailable. Falling back to iconset/icns."
+  fi
+fi
+
+if [[ -z "${ICON_INPUT_KIND:-}" ]]; then
+  ICON_INPUT_KIND="missing"
+fi
+
+if [[ "$ICON_INPUT_KIND" == "missing" ]]; then
+  echo "error: Missing app icon source."
+  echo "       Looked for appiconset: $APPICONSET_SRC"
+  echo "       Looked for iconset:    $ICONSET_SRC"
+  echo "       Looked for icns:       $ICON_SRC"
+  echo "       Provide APPICON_APPICONSET_PATH, APPICON_ICONSET_PATH, or APPICON_ICNS_PATH."
+  exit 1
+fi
+
+if [[ "$ICON_INPUT_KIND" == "appiconset" ]]; then
+  echo "==> Using icon source (appiconset): $ICON_INPUT_PATH"
+  echo "==> Icon pipeline: asset catalog (actool)"
+else
+  echo "==> Using icon source ($ICON_INPUT_KIND): $ICON_INPUT_PATH"
+  echo "==> Icon content scale: $CONTENT_SCALE"
+  echo "==> Icon pipeline: normalized icns"
+fi
 
 echo "==> Building release..."
 swift build -c release --product "$APP_NAME"
@@ -61,62 +125,61 @@ mkdir -p "$MACOS_DIR" "$RESOURCES"
 cp "$BIN" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
 
-echo "==> Compiling asset catalog (AppIcon + light/dark)..."
-ACTOOL_OUT="$(mktemp -d)"
-ACTOOL_LOG="$(mktemp)"
-trap 'rm -rf "$ACTOOL_OUT" "$ACTOOL_LOG"' EXIT
-PARTIAL="$ACTOOL_OUT/partial.plist"
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
 
-# actool often returns non-zero on some macOS builds when dyld prints loader noise to stderr,
-# even though AppIcon.icns and Assets.car are written. Treat success by output files, not exit code.
-set +e
-xcrun actool "$ASSETS" \
-  --compile "$ACTOOL_OUT" \
-  --platform macosx \
-  --minimum-deployment-target "$MIN_OS" \
-  --app-icon AppIcon \
-  --output-partial-info-plist "$PARTIAL" \
-  >"$ACTOOL_LOG" 2>&1
-ACTOOL_EXIT=$?
-set -e
+# Static outer app icon: always keep a light icon for Finder and app bundle representation.
+STATIC_LIGHT_ICONSET="$WORK_DIR/AppIconStaticLight.iconset"
+STATIC_LIGHT_ICNS="$WORK_DIR/AppIconStaticLight.icns"
+iconutil -c iconset "$STATIC_LIGHT_ICON_SRC" -o "$STATIC_LIGHT_ICONSET"
+swift "$NORMALIZER_SCRIPT" --iconset "$STATIC_LIGHT_ICONSET" --content-scale "$CONTENT_SCALE"
+iconutil -c icns "$STATIC_LIGHT_ICONSET" -o "$STATIC_LIGHT_ICNS"
+cp "$STATIC_LIGHT_ICNS" "$RESOURCES/AppIcon.icns"
+cp "$STATIC_LIGHT_ICNS" "$RESOURCES/AppIconLight.icns"
 
-HAVE_ICNS=0
-HAVE_CAR=0
-[[ -f "$ACTOOL_OUT/AppIcon.icns" ]] && HAVE_ICNS=1
-[[ -f "$ACTOOL_OUT/Assets.car" ]] && HAVE_CAR=1
+if [[ "$ICON_INPUT_KIND" == "appiconset" ]]; then
+  XCASSETS_DIR="$WORK_DIR/AppIcons.xcassets"
+  mkdir -p "$XCASSETS_DIR"
+  cp -R "$ICON_INPUT_PATH" "$XCASSETS_DIR/AppIcon.appiconset"
 
-if [[ "$HAVE_ICNS" -eq 1 && "$HAVE_CAR" -eq 1 ]]; then
-  if [[ "$ACTOOL_EXIT" -ne 0 ]]; then
-    echo "     note: actool exited with $ACTOOL_EXIT but wrote icons (ignoring dyld noise on this OS)."
-  fi
-  cp "$ACTOOL_OUT/AppIcon.icns" "$RESOURCES/"
-  cp "$ACTOOL_OUT/Assets.car" "$RESOURCES/"
-  echo "     Embedded AppIcon.icns + Assets.car (light + dark)."
-elif [[ "$HAVE_ICNS" -eq 1 ]]; then
-  cp "$ACTOOL_OUT/AppIcon.icns" "$RESOURCES/"
-  echo "     warning: Assets.car missing; copied AppIcon.icns only."
+  echo "==> Compiling app icon asset catalog..."
+  xcrun actool \
+    --compile "$RESOURCES" \
+    --platform macosx \
+    --minimum-deployment-target "$MIN_OS" \
+    --app-icon AppIcon \
+    --output-partial-info-plist "$WORK_DIR/asset-info.plist" \
+    "$XCASSETS_DIR"
+
 else
-  echo "==> actool did not produce AppIcon.icns; falling back to iconutil (light appearance only)..."
-  if [[ "$ACTOOL_EXIT" -ne 0 ]] && [[ -s "$ACTOOL_LOG" ]]; then
-    echo "--- actool log (last lines) ---"
-    tail -n 5 "$ACTOOL_LOG" || true
-    echo "---"
+  WORK_ICONSET="$WORK_DIR/AppIcon.iconset"
+  WORK_ICNS="$WORK_DIR/AppIcon.icns"
+
+  if [[ "$ICON_INPUT_KIND" == "iconset" ]]; then
+    echo "==> Preparing iconset source..."
+    cp -R "$ICON_INPUT_PATH" "$WORK_ICONSET"
+  else
+    echo "==> Expanding icns to iconset..."
+    iconutil -c iconset "$ICON_INPUT_PATH" -o "$WORK_ICONSET"
   fi
-  FALLBACK_ICONSET="$(mktemp -d)/JobTracker.iconset"
-  mkdir -p "$FALLBACK_ICONSET"
-  cp "$LIGHT_TEMPLATE/Contents.json" "$FALLBACK_ICONSET/"
-  for f in \
-    icon_16x16.png icon_16x16@2x.png \
-    icon_32x32.png icon_32x32@2x.png \
-    icon_128x128.png icon_128x128@2x.png \
-    icon_256x256.png icon_256x256@2x.png \
-    icon_512x512.png icon_512x512@2x.png \
-  ; do
-    cp "$APPICON_DIR/$f" "$FALLBACK_ICONSET/"
-  done
-  iconutil -c icns "$FALLBACK_ICONSET" -o "$RESOURCES/AppIcon.icns"
-  rm -rf "$(dirname "$FALLBACK_ICONSET")"
-  echo "     Embedded AppIcon.icns from JobTracker-Light.iconset (no dark variant in bundle)."
+
+  echo "==> Normalizing icon visual scale..."
+  swift "$NORMALIZER_SCRIPT" --iconset "$WORK_ICONSET" --content-scale "$CONTENT_SCALE"
+
+  echo "==> Rebuilding AppIcon.icns..."
+  iconutil -c icns "$WORK_ICONSET" -o "$WORK_ICNS"
+  cp "$WORK_ICNS" "$RESOURCES/AppIconRuntime.icns"
+fi
+
+# Optional explicit dark icon file for manual in-app dark override.
+# Process with the same normalization pipeline so light/dark icons keep matching visual scale.
+if [[ -f "$ICON_DARK_SRC" ]]; then
+  DARK_ICONSET="$WORK_DIR/AppIconDark.iconset"
+  DARK_ICNS="$WORK_DIR/AppIconDark.icns"
+  iconutil -c iconset "$ICON_DARK_SRC" -o "$DARK_ICONSET"
+  swift "$NORMALIZER_SCRIPT" --iconset "$DARK_ICONSET" --content-scale "$CONTENT_SCALE"
+  iconutil -c icns "$DARK_ICONSET" -o "$DARK_ICNS"
+  cp "$DARK_ICNS" "$RESOURCES/AppIconDark.icns"
 fi
 
 PLIST="$CONTENTS/Info.plist"
@@ -141,10 +204,14 @@ cat > "$PLIST" <<EOF
   <string>${VERSION}</string>
   <key>CFBundleVersion</key>
   <string>1</string>
+EOF
+
+cat >> "$PLIST" <<EOF
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
-  <key>CFBundleIconName</key>
-  <string>AppIcon</string>
+EOF
+
+cat >> "$PLIST" <<EOF
   <key>LSMinimumSystemVersion</key>
   <string>${MIN_OS}</string>
   <key>NSHighResolutionCapable</key>
@@ -163,4 +230,3 @@ echo "==> Done."
 echo "    App:  $APP_PATH"
 echo "    Zip:  $DIST/$ZIP_NAME"
 echo "    Test: open \"$APP_PATH\""
-echo "    Or unzip the zip elsewhere, then open JobTracker.app"

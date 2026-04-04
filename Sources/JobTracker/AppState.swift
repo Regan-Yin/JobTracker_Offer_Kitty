@@ -1,6 +1,23 @@
 import Combine
 import Foundation
 import GRDB
+import AppKit
+
+enum AppIconMode: String, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: return "System Default"
+        case .light: return "Light Icon"
+        case .dark: return "Dark Icon"
+        }
+    }
+}
 
 /// Central app state: database, settings, onboarding flag.
 @MainActor
@@ -29,6 +46,14 @@ final class AppState: ObservableObject {
             defaults.set(appearanceMode.rawValue, forKey: appearanceKey)
         }
     }
+    @Published var appIconMode: AppIconMode = .system {
+        didSet {
+            defaults.set(appIconMode.rawValue, forKey: appIconModeKey)
+            guard hasLoadedPreferences else { return }
+            iconChangeRequiresRestart = (appIconMode != launchIconMode)
+        }
+    }
+    @Published private(set) var iconChangeRequiresRestart = false
 
     // Feedback drafts
     @Published var feedbackDrafts: [FeedbackDraft] = []
@@ -39,8 +64,12 @@ final class AppState: ObservableObject {
     private let rootPathKey = "jobRootFolderPath"
     private let themeKey = "selectedTheme"
     private let appearanceKey = "appearanceMode"
+    private let appIconModeKey = "appIconMode"
     private let draftsKey = "feedbackDrafts"
     private let submittedKey = "submittedFeedback"
+    private var hasLoadedPreferences = false
+    private var launchIconMode: AppIconMode = .system
+    private var didApplyLaunchIcon = false
 
     init() {
         let db = try! AppDatabase.makeShared()
@@ -68,6 +97,17 @@ final class AppState: ObservableObject {
         }
         self.selectedTheme = loadedTheme
         self.appearanceMode = loadedAppearance
+
+        var loadedIconMode: AppIconMode = .system
+        if let iconModeName = defaults.string(forKey: appIconModeKey),
+           let mode = AppIconMode(rawValue: iconModeName) {
+            loadedIconMode = mode
+        }
+        self.appIconMode = loadedIconMode
+        self.launchIconMode = loadedIconMode
+        self.iconChangeRequiresRestart = false
+        self.hasLoadedPreferences = true
+
         JobTrackerTheme.activePreset = loadedTheme
         JobTrackerTheme.appearanceMode = loadedAppearance
         // Feedback
@@ -150,6 +190,60 @@ final class AppState: ObservableObject {
     private func persistSubmitted() {
         if let data = try? JSONEncoder().encode(submittedFeedback) {
             defaults.set(data, forKey: submittedKey)
+        }
+    }
+
+    func applyLaunchIconPreferenceIfNeeded() {
+        guard !didApplyLaunchIcon else { return }
+        didApplyLaunchIcon = true
+        applyIconMode(launchIconMode)
+    }
+
+    private func applyIconMode(_ mode: AppIconMode) {
+        switch mode {
+        case .system:
+            NSApp.applicationIconImage = nil
+        case .light:
+            if let image = loadIcon(named: "AppIconLight") ?? loadIcon(named: "AppIcon") {
+                NSApp.applicationIconImage = image
+            } else {
+                NSApp.applicationIconImage = nil
+            }
+        case .dark:
+            if let image = loadIcon(named: "AppIconDark") ?? loadIcon(named: "AppIcon-dark") {
+                NSApp.applicationIconImage = image
+            } else {
+                NSApp.applicationIconImage = nil
+            }
+        }
+    }
+
+    private func loadIcon(named resourceName: String) -> NSImage? {
+        if let url = Bundle.main.url(forResource: resourceName, withExtension: "icns") {
+            return NSImage(contentsOf: url)
+        }
+        return nil
+    }
+
+    func restartApplicationNow() {
+        let bundleURL = Bundle.main.bundleURL
+        guard bundleURL.pathExtension.lowercased() == "app" else {
+            NSApp.terminate(nil)
+            return
+        }
+
+        let escapedPath = bundleURL.path.replacingOccurrences(of: "'", with: "'\\''")
+        let command = "sleep 0.5; /usr/bin/open -n '\(escapedPath)'"
+
+        let relaunchTask = Process()
+        relaunchTask.executableURL = URL(fileURLWithPath: "/bin/sh")
+        relaunchTask.arguments = ["-c", command]
+
+        do {
+            try relaunchTask.run()
+            NSApp.terminate(nil)
+        } catch {
+            NSApp.terminate(nil)
         }
     }
 }

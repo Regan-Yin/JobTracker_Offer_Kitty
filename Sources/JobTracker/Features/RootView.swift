@@ -17,6 +17,10 @@ struct RootView: View {
                 }
             }
         }
-        .preferredColorScheme(appState.appearanceMode == .light ? .light : .dark)
+        // Do not use `.preferredColorScheme` here. It can change the process
+        // effective appearance so macOS selects the wrong App Icon variant in
+        // Dock/Finder. The UI colors come from `JobTrackerTheme` + `appearanceMode`
+        // explicitly; system chrome follows the OS for icon selection when
+        // `NSApp.appearance` is left unset (see `JobTrackerApp` / `AppDelegate`).
     }
 }

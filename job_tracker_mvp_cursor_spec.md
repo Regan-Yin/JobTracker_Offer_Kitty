@@ -1110,7 +1110,7 @@ Requirements:
 ### Distribution bundle and app icon (as implemented)
 
 - **SwiftPM** builds a command-line executable; **`Scripts/package_mac_app.sh`** produces a double-clickable **`JobTracker.app`** under **`dist/`** (release binary, `Info.plist`, resources) and a **`JobTracker-<version>-macOS.zip`** for copying to another Mac for testing.
-- **Icons:** `Resources/Assets.xcassets/AppIcon.appiconset/` merges **light** and **dark** macOS icon PNGs (dark entries use `appearances` / luminosity `dark`). **`xcrun actool`** compiles the catalog to **`AppIcon.icns`** and **`Assets.car`** in the app bundle so Finder can show the correct icon for light vs dark desktop appearance.
+- **Icons:** packaging prefers **`Resources/AppIcon/AppIcon.appiconset`** (asset catalog via `actool`) and falls back to **`Resources/AppIcon/AppIcon.iconset`** / **`Resources/AppIcon/AppIcon.icns`** with visual-scale normalization before rebuilding **`AppIcon.icns`**. `Info.plist` is written accordingly (`CFBundleIconName` for asset catalog mode, `CFBundleIconFile` for fallback mode).
 - **Signing:** ad-hoc / unsigned by default; notarization is optional for wider distribution.
 
 ---
@@ -1394,70 +1394,4 @@ The product priority order is:
 3. useful analytics
 4. polished native UX
 5. extensible architecture for future beta features
-
----
-
-## 36. Public Open-Source Compliance Checklist (Release Gate)
-
-Before any public source release, verify all of the following:
-
-### Repository hygiene
-- `.build/` is not tracked
-- `dist/` is not tracked
-- no local SQLite data files are tracked
-- no macOS metadata clutter (`.DS_Store`) is tracked
-- no personal exports or private notes are tracked
-
-### Sensitive content checks
-- no hardcoded credentials, API keys, or private tokens
-- no personal email addresses unless intentionally published
-- no absolute local machine paths in source/runtime defaults
-- no hidden or undocumented network endpoints
-
-### Runtime behavior checks
-- app can run fully offline for core workflows
-- app does not transmit data silently
-- any user-triggered outbound action is explicit and documented (for example GitHub issue page or optional mailto flow)
-
-### Documentation consistency
-- README install and usage steps match actual UI flow
-- LICENSE terms are visible and clear for non-commercial use
-- SECURITY statement matches current code behavior
-
----
-
-## 37. End-User Folder and Naming Guidance (Operational)
-
-For best detection quality in production use, recommend this structure:
-
-```text
-JOB/
-  Company Name/
-    Role or Team/
-      Cover Letter - Company - Role.docx
-      Resume - Candidate Name.docx
-```
-
-### Naming recommendations
-- Cover letter file should include one of: `cover`, `cover letter`, `cl`
-- Resume file should include one of: `resume`, `cv`
-- Include role text in cover letter filename when possible
-
-### Why this matters
-- company inference mainly uses first-level folder under root
-- role inference uses subfolder name + cover filename + `.docx` text signals
-- clear naming increases confidence and reduces manual cleanup workload
-
-### End-user step-by-step flow
-1. select JOB root folder
-2. run scan
-3. review unresolved candidates
-4. confirm company, role, stage, outcome, mapping fields
-5. use dashboard + reminders
-6. export CSV as needed
-
-### MVP parser expectations
-- `.docx` is the preferred format for quality
-- `.doc` is supported with limited extraction confidence
-- resume-only company folders produce draft candidates that need confirmation
 
