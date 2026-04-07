@@ -4,16 +4,13 @@
 
 ---
 
-## License and acceptable use (read this)
+## License
 
-This project is shared for **non-profit, personal, and educational** use. **Commercial use is not permitted** without prior written permission from the author. See **[LICENSE](LICENSE)** for the full **JobTracker Non-Commercial Community License**.
+This project is licensed under the **MIT License**. See **[LICENSE](LICENSE)** for the full text.
 
-- **Allowed:** Install, run, modify, and share the source for personal job hunting, learning, and good-faith non-commercial redistribution (e.g. your GitHub fork with attribution).
-- **Not allowed without permission:** Selling the app, bundling it in a paid product or service, or using it as part of work-for-hire or internal tooling where the primary purpose is commercial advantage, as described in the license.
-
-The MIT License text **does not** apply; the license file in this repository controls use. If you need a commercial license, contact the author.
-
-**No warranty.** The software is provided **as-is**. You are responsible for your data and backups.
+- **Allowed:** Use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software.
+- **Required:** Include the copyright notice and license text in substantial portions of the software.
+- **No warranty:** The software is provided **as-is**.
 
 ---
 
@@ -138,10 +135,10 @@ Default public setup in this repository keeps email blank and uses GitHub Issues
 A: No. SQLite lives under your user’s Application Support folder. You control backups (Time Machine, etc.).
 
 **Q: Can I use this at my company?**  
-A: Internal use at a for-profit company falls under **commercial / business use** in the license. You need **written permission** from the author for that, or use a different tool. Personal job search on your own machine is what this release targets.
+A: Yes. The MIT License permits commercial and internal business use.
 
 **Q: Can I fork on GitHub?**  
-A: Yes, for **non-commercial** sharing and modification, with license and copyright notice preserved.
+A: Yes. MIT allows forking and redistribution, including commercial use, as long as license and copyright notices are preserved.
 
 **Q: Gatekeeper says the app is from an unidentified developer.**  
 A: Expected for unsigned builds. Use **Right-click → Open**, or sign and notarize with your own Apple Developer ID.
@@ -162,12 +159,12 @@ A: Tune **`APPICON_CONTENT_SCALE`** when packaging. Example: `APPICON_CONTENT_SC
 
 ## Contributing
 
-Issues and pull requests are welcome for **non-commercial** improvements. Keep changes focused; match existing Swift style. Large features should align with [`job_tracker_mvp_cursor_spec.md`](job_tracker_mvp_cursor_spec.md).
+Issues and pull requests are welcome. Keep changes focused; match existing Swift style. Large features should align with [`job_tracker_mvp_cursor_spec.md`](job_tracker_mvp_cursor_spec.md).
 
 ---
 
 ## Author
 
-**Regan** — JobTracker is shared as a **personal, non-profit** project. **Commercial use is prohibited** without explicit permission; see **[LICENSE](LICENSE)**.
+**Regan** — JobTracker is open sourced under the **MIT License**; see **[LICENSE](LICENSE)**.
 
 If you find the app useful, a star on GitHub or a short note in your fork is appreciated.
